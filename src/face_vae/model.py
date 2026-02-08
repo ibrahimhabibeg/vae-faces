@@ -218,3 +218,23 @@ class VAE(nn.Module):
         z = self.prior.sample(batch_size, latent_dim, device)
         recon_x = self.decoder(z)
         return recon_x
+
+    def encode(self, x):
+        """
+        Encode an image to get its latent representation (mu and logvar).
+        """
+        if x.dim() == 3:
+            x = x.unsqueeze(0)  # Add batch dimension if missing
+        assert x.shape[1] == 3, "Expected input with 3 channels (RGB)"
+        _, mu, logvar = self.encoder(x)
+        return mu.squeeze(0), logvar.squeeze(0)  # Remove batch dimension for single image input
+
+    def decode(self, z):
+        """
+        Decode a latent vector to get the reconstructed image.
+        """
+        if z.dim() == 1:
+            z = z.unsqueeze(0)  # Add batch dimension if missing
+        assert z.dim() == 2, "Expected input with shape (batch_size, latent_dim)"
+        recon_x = self.decoder(z)
+        return recon_x.squeeze(0)  # Remove batch dimension for single image output
