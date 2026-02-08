@@ -158,7 +158,7 @@ class CelebAMaskHQ(VisionDataset):
     def __init__(
         self,
         root: str,
-        transform: Optional[Callable] = None,
+        transform: Optional[Callable] = transforms.ToTensor(),
     ) -> None:
         super().__init__(root, transform=transform)
 
