@@ -6,7 +6,6 @@ from torchvision.datasets import VisionDataset
 from typing import Optional, Callable, Tuple, Any, Union
 from torchvision import transforms
 from pathlib import Path
-import numpy as np
 
 
 class CelebA(VisionDataset):
@@ -149,138 +148,33 @@ class CelebA(VisionDataset):
 
 class CelebAMaskHQ(VisionDataset):
     """
-    CelebAMask-HQ dataset loader with background removal.
+    CelebAMask-HQ dataset loader with background removed.
     This dataset loads face images from CelebA-HQ-img and applies masks from CelebAMask-HQ-mask-anno
-    to remove backgrounds, keeping only facial features.
-    Based on data structure found in https://www.kaggle.com/datasets/ipythonx/celebamaskhq
+    to remove backgrounds, keeping only facial features and garments.
+    Root directory should be the output directory of the preprocessing script.
+    Based on the data found in https://www.kaggle.com/datasets/ipythonx/celebamaskhq
     """
 
     def __init__(
         self,
         root: str,
-        transform: Optional[Callable] = transforms.Compose(
-            [
-                transforms.Resize(64),
-                transforms.CenterCrop(64),
-                transforms.ToTensor(),
-            ]
-        ),
-        background_color: Tuple[int, int, int] = (0, 0, 0),
+        transform: Optional[Callable] = None,
     ) -> None:
-        """
-        Args:
-            root (string): Root directory containing 'CelebA-HQ-img' and 'CelebAMask-HQ-mask-anno' folders.
-            transform (callable, optional): A function/transform that takes in a PIL image
-                and returns a transformed version. E.g, ``transforms.ToTensor``
-            background_color (tuple): RGB color tuple (0-255) for background pixels. Default is black (0, 0, 0).
-        """
         super().__init__(root, transform=transform)
 
-        self.background_color = background_color
-
-        # Transform images to 512x512 to match mask size
-        self.resize_transform = transforms.Compose(
-            [
-                transforms.Resize(512),
-                transforms.CenterCrop(512),
-            ]
-        )
-
-        self.img_dir = Path(root) / "CelebAMask-HQ" / "CelebA-HQ-img"
-        self.mask_dir = Path(root) / "CelebAMask-HQ" / "CelebAMask-HQ-mask-anno"
+        self.img_dir = Path(root)
 
         if not self.img_dir.is_dir():
-            raise RuntimeError(
-                f"Image directory not found at {self.img_dir}. Check structure."
-            )
-        if not self.mask_dir.is_dir():
-            raise RuntimeError(
-                f"Mask directory not found at {self.mask_dir}. Check structure."
-            )
+            raise RuntimeError(f"Image directory not found at {self.img_dir}.")
 
-        # Get list of all image files
         self.image_files = sorted(
-            [f for f in self.img_dir.glob("*.jpg")], key=lambda x: int(x.stem)
+            [f for f in self.img_dir.glob("*.png")], key=lambda x: int(x.stem)
         )
 
         if len(self.image_files) == 0:
             raise RuntimeError(f"No image files found in {self.img_dir}")
 
-        # Build mask folder mapping (0-14)
-        self.mask_folders = [self.mask_dir / str(i) for i in range(15)]
-
-        for folder in self.mask_folders:
-            if not folder.is_dir():
-                raise RuntimeError(
-                    f"Mask folder not found at {folder}. Check structure."
-                )
-
         print(f"Loaded CelebAMaskHQ Dataset. Samples: {len(self.image_files)}")
-
-    def _get_mask_files_for_image(self, img_id: int) -> list:
-        """
-        Get all mask files for a given image ID.
-
-        Args:
-            img_id: Image ID (e.g., 0, 1, 2, ...)
-
-        Returns:
-            List of Path objects for all mask files belonging to this image
-        """
-        # Format image ID with 5 digits (e.g., 0 -> 00000)
-        img_id_str = f"{img_id:05d}"
-
-        mask_files = []
-
-        # Search through all mask folders (0-14)
-        for mask_folder in self.mask_folders:
-            # Find all masks for this image (pattern: {img_id}_*.png)
-            matching_masks = list(mask_folder.glob(f"{img_id_str}_*.png"))
-            mask_files.extend(matching_masks)
-
-        return mask_files
-
-    def _merge_masks(self, mask_files: list, img_size: Tuple[int, int]) -> np.ndarray:
-        """
-        Merge all mask files into a single binary mask.
-
-        Args:
-            mask_files: List of mask file paths
-            img_size: Size of the image (width, height)
-
-        Returns:
-            Binary mask as numpy array (height, width) with values 0 or 1
-        """
-        # Create empty mask
-        merged_mask = np.zeros((img_size[1], img_size[0]), dtype=np.uint8)
-
-        # Load and merge all masks
-        for mask_file in mask_files:
-            mask = PIL.Image.open(mask_file).convert("L")
-            mask_array = np.array(mask)
-            # Any non-zero pixel in the mask is considered part of the face
-            merged_mask = np.maximum(merged_mask, (mask_array > 0).astype(np.uint8))
-
-        return merged_mask
-
-    def _apply_mask_to_image(
-        self, img: PIL.Image.Image, mask: np.ndarray
-    ) -> PIL.Image.Image:
-        """
-        Apply mask to image, replacing background with specified color.
-
-        Args:
-            img: PIL Image (RGB)
-            mask: Binary mask (height, width) with values 0 or 1
-
-        Returns:
-            PIL Image with background replaced
-        """
-        img_array = np.array(img)
-        background = np.full_like(img_array, self.background_color)
-        mask_3ch = np.stack([mask] * 3, axis=-1)
-        result = img_array * mask_3ch + background * (1 - mask_3ch)
-        return PIL.Image.fromarray(result.astype(np.uint8))
 
     def __getitem__(self, index: int) -> Any:
         """
@@ -290,21 +184,8 @@ class CelebAMaskHQ(VisionDataset):
         Returns:
             Image with background removed (masked)
         """
-        # Get image
         img_file = self.image_files[index]
-        img_id = int(img_file.stem)
         img = PIL.Image.open(img_file).convert("RGB")
-
-        # Images are 1024x1024, masks are 512x512
-        img = self.resize_transform(img)
-
-        # Mask image
-        mask_files = self._get_mask_files_for_image(img_id)
-        assert len(mask_files) > 0, (
-            f"No mask files found for image ID {img_id} at index {index}"
-        )
-        merged_mask = self._merge_masks(mask_files, img.size)
-        img = self._apply_mask_to_image(img, merged_mask)
 
         # Apply transforms
         if self.transform is not None:
@@ -314,6 +195,3 @@ class CelebAMaskHQ(VisionDataset):
 
     def __len__(self) -> int:
         return len(self.image_files)
-
-    def extra_repr(self) -> str:
-        return f"Samples: {len(self.image_files)}, Background color: {self.background_color}"
