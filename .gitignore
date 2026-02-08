@@ -12,3 +12,6 @@ wheels/
 img_align_celeba
 
 data
+
+wandb
+checkpoints
