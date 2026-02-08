@@ -1,0 +1,24 @@
+[project]
+name = "face-vae"
+version = "0.1.0"
+description = "VAE for face morphing"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "kagglehub>=0.4.3",
+    "matplotlib>=3.10.8",
+    "numpy>=2.4.2",
+    "pandas>=3.0.0",
+    "simple-parsing>=0.1.8",
+    "torch>=2.10.0",
+    "torchvision>=0.25.0",
+    "tqdm>=4.67.3",
+    "wandb>=0.24.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/face_vae"]
