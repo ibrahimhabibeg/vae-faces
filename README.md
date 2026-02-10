@@ -19,7 +19,7 @@ The code is built to work on both the **CelebA** and **CelebAMask-HQ** datasets,
 
 By linearly interpolating between two latent vectors $z_1$ and $z_2$ generated from different faces and passing them through the decoder, we can generate smooth transitions between entirely different faces. The smoothness of the morphing animation demonstrates the continuity of the learned latent space.
 
-![Morphing Animation](https://ibrahimhabib.me/blogs/variational-autoencoder/morph_grid.gif)
+![Morphing Animation](./assets/morph_grid.gif)
 
 ### Generative Sampling
 
